@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Classificação de Risco</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 30px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            max-width: 900px;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.05);
+        }
+        .form-select, .form-control {
+            margin-bottom: 10px;
+        }
+        textarea {
+            resize: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Classificar Textos por Nível de Risco</h1>
+
+        <!-- Formulário -->
+        <form method="POST" class="mb-4">
+            <textarea name="texto" class="form-control" rows="3" placeholder="Digite o texto..." required></textarea>
+            <select name="risco" class="form-select" required>
+                <option value="">Selecione o nível de risco</option>
+                <option value="Baixo">Baixo</option>
+                <option value="Medio">Medio</option>
+                <option value="Alto">Alto</option>
+            </select>
+            <button type="submit" class="btn btn-success">Salvar</button>
+        </form>
+
+        <!-- Contador por risco -->
+        <h2 class="mt-4">Resumo de Textos por Risco</h2>
+        <ul class="list-group mb-4">
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>Alto</span>
+                <span class="badge bg-danger rounded-pill">{{ contagens.get('Alto', 0) }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>Medio</span>
+                <span class="badge bg-warning text-dark rounded-pill">{{ contagens.get('Medio', 0) }}</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>Baixo</span>
+                <span class="badge bg-success rounded-pill">{{ contagens.get('Baixo', 0) }}</span>
+            </li>
+        </ul>
+
+        <!-- Tabela de textos -->
+        <h2>Textos Cadastrados</h2>
+        <table class="table table-bordered table-striped">
+            <thead class="table-light">
+                <tr>
+                    <th>Texto</th>
+                    <th>Risco</th>
+                    <th>Data</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in frases %}
+                <tr>
+                    <td>{{ item.texto }}</td>
+                    <td>
+                        <span class="badge
+                            {% if item.risco == 'Alto' %} bg-danger
+                            {% elif item.risco == 'Medio' %} bg-warning text-dark
+                            {% else %} bg-success
+                            {% endif %}">
+                            {{ item.risco }}
+                        </span>
+                    </td>
+                    <td>{{ item.data }}</td>
+                    <td>
+                        <a href="{{ url_for('delete_frase', index=loop.index0) }}"
+                           class="btn btn-sm btn-danger"
+                           onclick="return confirm('Deseja excluir este texto?')">Excluir</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted">Nenhum texto cadastrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

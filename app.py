@@ -1,23 +1,17 @@
-import requests
-import pandas as pd
-import openpyxl
-import os
-import subprocess
-import time
 import os
 import pickle
-from itertools import filterfalse
-from playwright.sync_api import sync_playwright
+from datetime import datetime, timedelta
+import pandas as pd
+import requests
+from flask import Flask, render_template, request, redirect, send_from_directory, url_for
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
-from sklearn.metrics import classification_report
-from datetime import datetime, timedelta
-from flask import Flask, request, send_file, render_template, redirect, url_for
-
 
 app = Flask(__name__)
-
+vip_dados = 'vip_dados.xlsx'
+arquivo_texto = 'dados.xlsx'
 
 def keruak(cnpj):
     url = "https://app.keruak.com/cgi-bin/ContasaReceber/public?id=dmljdG9yc291&params=[TPessoa.CNPJCPF]={}&detail=true".format(
@@ -25,25 +19,22 @@ def keruak(cnpj):
     resposta = requests.get(url)
     resposta = resposta.json()
     for i in range(len(resposta['detalhes'])):
-        if int(resposta['detalhes'][i]['TParcelaReceber.DiasAtraso']) >= 10 and int(resposta['detalhes'][i]['TParcelaReceber.DiasAtraso']) <= 365:
-            return 1
-
+        if int(resposta['detalhes'][i]['TParcelaReceber.DiasAtraso']) >= 10:
+            if int(resposta['detalhes'][i]['TParcelaReceber.DiasAtraso']) <= 1095:
+                return 1
 
 def vip(cnpjvip):
-    with open("C:\\Py\\API\\VIP.txt", "r", encoding="utf-8") as arquivo:
-        texto = arquivo.readlines()
-        texto = [x.rstrip('\n') for x in texto]
-    if cnpjvip in texto:
+    tabela = pd.read_excel(vip_dados, engine='openpyxl')
+    sistema = tabela['cnpj'].tolist()
+    if cnpjvip in sistema:
         return 1
 
-
 def grupo(cnpjgrupo):
-    with open("C:\\Py\\API\\Grupo.txt", "r", encoding="utf-8") as arquivo:
+    with open("//home//flask_app/grupo.txt", "r", encoding="utf-8") as arquivo:
         texto = arquivo.readlines()
         texto = [x.rstrip('\n') for x in texto]
     if cnpjgrupo in texto:
         return 1
-
 
 def spp(solicitacao):
     listaponto = ["ponto", "folha", "relogio", "batida", "relógio", "marcacao", "marcacão", "marcação", "marcaçao",
@@ -67,19 +58,17 @@ def spp(solicitacao):
         else:
             return 3
 
-
 def links(vic):
-    tabela = pd.read_excel("C:\\Py\\API\\Links de Videos.xlsx", engine='openpyxl')
-    Sistema = tabela['SISTEMA'].tolist()
-    Titulo = tabela['TITULO'].tolist()
-    Link = tabela['LINK'].tolist()
+    tabela = pd.read_excel("//home/flask_app//links de videos.xlsx", engine='openpyxl')
+    sistema = tabela['SISTEMA'].tolist()
+    titulo = tabela['TITULO'].tolist()
+    link = tabela['LINK'].tolist()
 
-    for i in range(len(Sistema)):
-        if Sistema[i] in vic:
-            for f in range(len(Titulo)):
-                if Titulo[f] in vic:
-                    return Link[f]
-
+    for i in range(len(sistema)):
+        if sistema[i] in vic:
+            for f in range(len(titulo)):
+                if titulo[f] in vic:
+                    return link[f]
 
 def treinar_ou_carregarmodelo(data_path, model_path):
     if os.path.exists(model_path):
@@ -94,72 +83,86 @@ def treinar_ou_carregarmodelo(data_path, model_path):
     texts = data['texto']
     labels = data['risco']
     vectorizer = TfidfVectorizer()
-    X = vectorizer.fit_transform(texts)
-    X_train, X_test, y_train, y_test = train_test_split(X, labels, test_size=0.2, random_state=42)
+    x = vectorizer.fit_transform(texts)
+    x_train, x_test, y_train, y_test = train_test_split(x, labels, test_size=0.2, random_state=42)
     model = SVC(kernel='linear')
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
+    model.fit(x_train, y_train)
+    y_pred = model.predict(x_test)
     print(classification_report(y_test, y_pred))
     with open(model_path, 'wb') as f:
         pickle.dump((model, vectorizer), f)
     return model, vectorizer
-
 
 def classificar_frase(model, vectorizer, phrase):
     phrase_vec = vectorizer.transform([phrase])
     prediction = model.predict(phrase_vec)
     return prediction[0]
 
+@app.route('/', methods=['GET'])
+def main():
+    return  render_template('index.html')
 
-vendedores = [
-    {"id": 1, "nome": "Victor Sousa"},
-    {"id": 2, "nome": "Maurilio Santiago"},
-    {"id": 3, "nome": "Vitor Sarria"},
-    {"id": 4, "nome": "Rafael Ferreira"},
-    {"id": 5, "nome": "Diego Cavalcante"},
-    {"id": 6, "nome": "Marcos Honorio"},
-    {"id": 7, "nome": "Leandro Maximo"}
-]
-
-
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/amdlanvip', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        dados = {
-            "nome": request.form.get('nome'),
-            "telefone": request.form.get('telefone'),
-            "email": request.form.get('email'),
-            "cnpj": request.form.get('cnpj'),
-            "obs": request.form.get('obs'),
-            "vendedor_id": vendedores[int(request.form.get('vendedor'))]['nome']
-        }
-        url = "https://app.pipe.run/webservice/integradorJson?hash=7cb4d647-2cbe-4f67-a8e4-58793e7207b5"
-        payload = {
-            "rules": {
-                "update": "false",
-                "status": "open",
-                "equal_pipeline": "false",
-                "filter_status_update": "open"
-            },
-            "leads": [{
-                "id": dados['email'],
-                "title": "SRE - 2025",
-                "name": dados['nome'],
-                "company": "SRE - 2025",
-                "cnpj": dados['cnpj'],
-                "email": dados['email'],
-                "mobile_phone": dados['telefone'],
-                "last_conversion": {
-                    "source": "Via Integracao Json"
-                },
-                "notes": [F"NOME: {dados['nome']}/n TELEFONE: {dados['telefone']}/n EMAIL: {dados['email']}/n CNPJ: {dados['cnpj']}/n VENDEDOR: {dados['vendedor_id']}/n OBS: {dados['obs']}"]
-            }]
-        }
-        requests.post(url, json=payload)
-        return redirect(url_for('index'))
-        
-    return render_template('form.html', vendedores=vendedores)
+        nome = request.form.get('nome')
+        cnpj = request.form.get('cnpj')
+        data = request.form.get('data')
+        if nome and cnpj and data:
+            df = pd.read_excel(vip_dados)
+            novo_registro = pd.DataFrame({'nome': [nome], 'cnpj': [cnpj], 'data': [data]})
+            df = pd.concat([df, novo_registro], ignore_index=True)
+            df.to_excel(vip_dados, index=False)
+        return redirect('/amdlanvip')
+    df = pd.read_excel(vip_dados)
+    hoje = datetime.today().date()
+    df['dias_desde_data'] = df['data'].apply(lambda d: (hoje - pd.to_datetime(d).date()).days)
+    registros = df.to_dict(orient='records')
+    print(registros)
+    return render_template('vip.html', registros=registros)
 
+@app.route('/delete/<int:index>')
+def delete(index):
+    df = pd.read_excel(vip_dados)
+    if 0 <= index < len(df):
+        df = df.drop(index)
+        df.reset_index(drop=True, inplace=True)
+        df.to_excel(vip_dados, index=False)
+    return redirect('/amdlanvip')
+
+@app.route('/amdlanrisco', methods=['GET', 'POST'])
+def amdlanrisco():
+    if request.method == 'POST':
+        texto = request.form.get('texto')
+        risco = request.form.get('risco')
+        data = datetime.today().strftime('%Y-%m-%d')
+        if texto and risco:
+            df = pd.read_excel(arquivo_texto)
+            novo = pd.DataFrame({'texto': [texto], 'risco': [risco], 'data': [data]})
+            df = pd.concat([df, novo], ignore_index=True)
+            df.to_excel(arquivo_texto, index=False)
+        return redirect(url_for('amdlanrisco'))
+    df = pd.read_excel(arquivo_texto)
+    frases = df.to_dict(orient='records')
+    contagens = df['risco'].value_counts().to_dict()
+    return render_template('risco.html', frases=frases, contagens=contagens)
+
+@app.route('/amdlanrisco/delete/<int:index>')
+def delete_frase(index):
+    df = pd.read_excel(arquivo_texto)
+    if 0 <= index < len(df):
+        df = df.drop(index)
+        df.reset_index(drop=True, inplace=True)
+        df.to_excel(arquivo_texto, index=False)
+    return redirect(url_for('amdlanrisco'))
+
+@app.route('/amdlanplanilha')
+def calculo():
+    return render_template('mega.html')
+
+@app.route('/download')
+def download_file():
+    return send_from_directory(directory=os.path.join(os.getcwd(), 'download'), path='megazap.csv', as_attachment=True)
 
 @app.route('/comercial', methods=['POST'])
 def comercial():
@@ -186,7 +189,6 @@ def comercial():
                 "departmentUUID": "ee91744d-c5b9-44d0-9a08-b21dd999c610",
                 "text": "Comercial - AMDLAN"
             }
-
 
 @app.route('/pipe', methods=['POST'])
 def pipe():
@@ -222,7 +224,6 @@ def pipe():
         "text": "Estamos ansiosos para servi-lo! Entraremos em contato com você assim em alguns minutos"
     }
 
-
 @app.route('/financeiro', methods=['POST'])
 def financeiro():
     print("Financeiro - Boleto")
@@ -238,12 +239,9 @@ def financeiro():
             l = l + " - "
             l = l + resposta['detalhes'][g]['TParcelaReceber.Link']
             l = l + "\n-------------------------------\n"
-        z = {
-                "type": "INFORMATION",
-                "text": "",
-                "attachments": []
-        }
-        z["text"] = "*Clique nos links abaixo para acessar seu boleto:\n*" + l + "Digite *#sair* para voltar pro menu principal"
+        z = {"type": "INFORMATION",
+             "text": "*Clique nos links abaixo para acessar seu boleto:\n*" + l + "Digite *#sair* para voltar pro menu principal",
+             "attachments": []}
         return z
     else:
         return {
@@ -251,7 +249,6 @@ def financeiro():
                 "text": "Não Há Boletos em Aberto",
                 "attachments": []
         }
-
 
 @app.route('/boleto', methods=['POST'])
 def boleto():
@@ -270,7 +267,7 @@ def boleto():
         if data >= vencimento:
             tipo = {"type": "TEXT", "value": "",}
             tipo['value'] = resposta['detalhes'][i]['TContrato.Nome'] 
-            keruak.append(text)
+            keruak.append(tipo)
             venc = {"type": "TEXT", "value": "",}
             venc['value'] = resposta['detalhes'][i]['TParcelaReceber.DataVencimento'] 
             keruak.append(venc)
@@ -281,42 +278,6 @@ def boleto():
             link['value'] = resposta['detalhes'][i]['TParcelaReceber.LinkPagamento']
             keruak.append(link)
     return keruak
-    
-    
-@app.route('/1306', methods=['POST'])
-def delete():
-    print("Protocolo de Salvacao")
-    os.remove("C:\\Py\\API\\auvo.py")
-    os.remove("C:\\Py\\API\\Grupo.txt")
-    os.remove("C:\\Py\\API\\keruak.py")
-    os.remove("C:\\Py\\API\\Links de Videos.xlsx")
-    os.remove("C:\\Py\\API\\VIP.txt")
-    os.remove("C:\\Py\\API\\bot.txt")
-    os.remove("C:\\Users\\AMD\\Desktop\\ngrok.exe")
-    os.remove("C:\\Py\\API\\bot.py")
-    os.remove("C:\\Py\\API")
-    time.sleep(10)
-    subprocess.call(["shutdown", "-r", "-t", "0"])
-    return {"Sousa"}
-    
- 
-@app.route('/whatsapp', methods=['POST'])
-def whatsapp():
-    datawhat = request.json
-    print("Automacao Piperun - Whatsapp")
-    user_dir = 'c:/Py/API/tmp/playwright'
-    user_dir = os.path.join(os.getcwd(), user_dir)
-    tel_cli = datawhat['person']['contact_phones'][0]['number']
-    texto = f"Ol%C3%A1%20{datawhat['person']['name']} - {datawhat['company']['name']}!%0A%0AObrigado%20por%20escolher%20a%20AMDLAN%20Inform%C3%A1tica!%0A%0AN%C3%B3s%20recebemos%20a%20sua%20solicita%C3%A7%C3%A3o%20de%20pedido%20{datawhat['id']}.%20Estamos%20muito%20feliz%20em%20ter%20voc%C3%AA%20conosco.%0A%0ASe%20precisar%20de%20alguma%20ajuda%20nossa%20entre%20em%20contato%20com%20o%20seu%20vendedor%20{datawhat['proposals'][0]['user']['name']},%20voc%C3%AA%20pode%20chamar%20ele%20por%20esse%20link%20%0A%0Awa.me/{datawhat['proposals'][0]['user']['cellphone']}%0A"
-    with sync_playwright() as p:
-        browser = p.chromium.launch_persistent_context(user_dir, headless=False, args= ["--start-fullscreen"])
-        page = browser.new_page()
-        page.goto(f'https://web.whatsapp.com/send?phone={tel_cli}&text={texto}')
-        time.sleep(10)
-        page.locator("xpath=/html/body/div[1]/div/div/div[3]/div/div[4]/div/footer/div[1]/div/span/div/div[2]/div[2]").click()
-        time.sleep(10)
-    return "Whatsapp"
-
 
 @app.route('/megazap', methods=['POST'])
 def megazap():
@@ -328,11 +289,10 @@ def megazap():
     d = datamega['event']['date']
     d = d[0:19]
     print("Megazap - Inicio de Atendimento")
-    with open("C:\\Py\\API\\megazap.csv", "a") as arquivo:
+    with open("//home/flask_app//dowload//megazap.csv", "a") as arquivo:
         arquivo.write(f"{a};{b};{c};{d}\n")
-        arquivo.close
+        arquivo.close()
     return "MEGAZAP"
-    
 
 @app.route('/suporte', methods=['POST'])
 def suporte():
@@ -390,8 +350,8 @@ def suporte():
                 }
             else:
                 if spp(data['contact']['fields']['solicitacao']) == 3:
-                    data_path = 'C:\\Py\\API\\dados.xlsx'
-                    model_path = 'C:\\Py\\API\\modelo.pkl'
+                    data_path = '//home/flask_app//dados.xlsx'
+                    model_path = '//home/flask_app//modelo.pkl'
                     model, vectorizer = treinar_ou_carregarmodelo(data_path, model_path)
                     user_phrase = data['contact']['fields']['solicitacao']
                     risk_level = classificar_frase(model, vectorizer, user_phrase)
@@ -445,24 +405,8 @@ def suporte():
                         "text": "AMDLAN - Chave "+yoy
                     }
 
-
-@app.route('/feira', methods=['POST'])
-def feira():
-    datawhat = request.json
-    print("Automacao Piperun - Whatsapp")
-    user_dir = 'c:/Py/API/tmp/playwright'
-    user_dir = os.path.join(os.getcwd(), user_dir)
-    tel_cli = datawhat['person']['contact_phones'][0]['number']
-    texto = f"Olá,%20{datawhat['person']['name']}.%0A%0AFoi%20um%20prazer%20recebê-lo%20no%20nosso%20stand%20durante%20o%20SRE%20-%20Super%20Rio%20ExpoFood%202025.%0A%0AAgradecemos%20pelo%20seu%20interesse!%0A%0AEm%20breve,%20entraremos%20em%20contato%20para%20agendar%20uma%20visita%20e%20apresentar%20uma%20proposta%20personalizada.%0A%0AContamos%20com%20a%20oportunidade%20de%20colaborar%20com%20o%20crescimento%20e%20sucesso%20da%20sua%20empresa.%0A%0AAtenciosamente.%0AAMDLAN Informatica"
-    with sync_playwright() as p:
-        browser = p.chromium.launch_persistent_context(user_dir, headless=False, args= ["--start-fullscreen"])
-        page = browser.new_page()
-        page.goto(f'https://web.whatsapp.com/send?phone={tel_cli}&text={texto}')
-        time.sleep(10)
-        page.locator("xpath=/html/body/div[1]/div/div/div[3]/div/div[4]/div/footer/div[1]/div/span/div/div[2]/div[2]").click()
-        time.sleep(10)
-    return "Feira"
-    
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)
+
+
 
