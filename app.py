@@ -289,7 +289,7 @@ def megazap():
     d = datamega['event']['date']
     d = d[0:19]
     print("Megazap - Inicio de Atendimento")
-    with open("//home/flask_app//dowload//megazap.csv", "a") as arquivo:
+    with open("//home/flask_app//download//megazap.csv", "a") as arquivo:
         arquivo.write(f"{a};{b};{c};{d}\n")
         arquivo.close()
     return "MEGAZAP"
