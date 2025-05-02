@@ -12,6 +12,7 @@ from sklearn.svm import SVC
 app = Flask(__name__)
 vip_dados = 'vip_dados.xlsx'
 arquivo_texto = 'dados.xlsx'
+arquivo_feriados = 'feriados.txt'
 
 def keruak(cnpj):
     url = "https://app.keruak.com/cgi-bin/ContasaReceber/public?id=dmljdG9yc291&params=[TPessoa.CNPJCPF]={}&detail=true".format(
@@ -98,6 +99,17 @@ def classificar_frase(model, vectorizer, phrase):
     prediction = model.predict(phrase_vec)
     return prediction[0]
 
+def carregar_feriados():
+    if not os.path.exists(arquivo_feriados):
+        return []
+    with open(arquivo_feriados, 'r', encoding='utf-8') as f:
+        return [linha.strip() for linha in f if linha.strip()]
+
+def salvar_feriado(data):
+    with open(arquivo_feriados, 'a', encoding='utf-8') as f:
+        f.write(f"{data}\n")
+
+
 @app.route('/', methods=['GET'])
 def main():
     return  render_template('index.html')
@@ -163,6 +175,17 @@ def calculo():
 @app.route('/download')
 def download_file():
     return send_from_directory(directory=os.path.join(os.getcwd(), 'download'), path='megazap.csv', as_attachment=True)
+
+@app.route('/amdlanferiado', methods=['GET', 'POST'])
+def amdlanferiado():
+    dias_feriado = carregar_feriados()
+    if request.method == 'POST':
+        nova_data = request.form.get('data')
+        if nova_data not in dias_feriado:
+            dias_feriado.append(nova_data)
+            salvar_feriado(nova_data)
+        return redirect(url_for('amdlanferiado'))
+    return render_template('feriado.html', feriados=dias_feriado)
 
 @app.route('/comercial', methods=['POST'])
 def comercial():
@@ -296,14 +319,16 @@ def megazap():
 
 @app.route('/suporte', methods=['POST'])
 def suporte():
+    dias_feriado = carregar_feriados()
     data = request.json
+    diam = datetime.now().date()
     text = data['contact']['fields']['solicitacao']
     text = text.upper()
     youtube = links(text)
     yoy = "\nSegue um video que pode te ajudar \n{}".format(youtube)
     if youtube is None:
         yoy = " "
-    if datetime.today().isoweekday() == 6 or datetime.today().isoweekday() == 7:
+    if datetime.today().isoweekday() == 6 or datetime.today().isoweekday() == 7 or str(diam) in dias_feriado:
         if str(data['contact']['fields']['cnpjcpf']) == "04092639000103":
             print("Suporte - AMDLAN")
             return {
