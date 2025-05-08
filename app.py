@@ -8,11 +8,13 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
+import re
 
 app = Flask(__name__)
 vip_dados = 'vip_dados.xlsx'
 arquivo_texto = 'dados.xlsx'
 arquivo_feriados = 'feriados.txt'
+ARQUIVO = 'links de videos.xlsx'
 
 def keruak(cnpj):
     url = "https://app.keruak.com/cgi-bin/ContasaReceber/public?id=dmljdG9yc291&params=[TPessoa.CNPJCPF]={}&detail=true".format(
@@ -109,13 +111,20 @@ def salvar_feriado(data):
     with open(arquivo_feriados, 'a', encoding='utf-8') as f:
         f.write(f"{data}\n")
 
+def formatar_numero(numero):
+    numero_limpo = re.sub(r'\D', '', numero)
+    if numero_limpo.startswith('55'):
+        return numero_limpo
+    else:
+        return '55' + numero_limpo
+
 
 @app.route('/', methods=['GET'])
 def main():
     return  render_template('index.html')
 
 @app.route('/amdlanvip', methods=['GET', 'POST'])
-def index():
+def vip():
     if request.method == 'POST':
         nome = request.form.get('nome')
         cnpj = request.form.get('cnpj')
@@ -141,6 +150,44 @@ def delete(index):
         df.reset_index(drop=True, inplace=True)
         df.to_excel(vip_dados, index=False)
     return redirect('/amdlanvip')
+
+@app.route('/amdlanvideos', methods=['GET', 'POST'])
+def videos():
+    if request.method == 'POST':
+        sistema = request.form['sistema']
+        titulo = request.form['titulo']
+        link = request.form['link']
+
+        novo_dado = pd.DataFrame([[sistema, titulo, link]], columns=['SISTEMA', 'TITULO', 'LINK'])
+
+        if os.path.exists(ARQUIVO):
+            dados_existentes = pd.read_excel(ARQUIVO)
+            dados_atualizados = pd.concat([dados_existentes, novo_dado], ignore_index=True)
+        else:
+            dados_atualizados = novo_dado
+
+        with pd.ExcelWriter(ARQUIVO, engine='openpyxl', mode='w') as writer:
+            dados_atualizados.to_excel(writer, index=False)
+
+        return redirect('/amdlanvideos')
+
+    if os.path.exists(ARQUIVO):
+        dados = pd.read_excel(ARQUIVO)
+        dados['INDEX'] = dados.index
+    else:
+        dados = pd.DataFrame(columns=['SISTEMA', 'TITULO', 'LINK', 'INDEX'])
+
+    return render_template('videos.html', dados=dados.to_dict(orient='records'))
+
+@app.route('/amdlanvideos/apagar/<int:index>')
+def apagar(index):
+    if os.path.exists(ARQUIVO):
+        dados = pd.read_excel(ARQUIVO)
+        if 0 <= index < len(dados):
+            dados = dados.drop(index).reset_index(drop=True)
+            with pd.ExcelWriter(ARQUIVO, engine='openpyxl', mode='w') as writer:
+                dados.to_excel(writer, index=False)
+    return redirect('/amdlanvideos')
 
 @app.route('/amdlanrisco', methods=['GET', 'POST'])
 def amdlanrisco():
@@ -430,5 +477,30 @@ def suporte():
                         "text": "AMDLAN - Chave "+yoy
                     }
 
+@app.route('/amdlanpipe', methods=['POST'])
+def amdlanpipe():
+    data = request.json
+    print(data)
+    url = "http://191.252.178.27:3000/api/sendText"
+    body = {
+        "chatId": "",
+        "text": "",
+        "session": "default"
+        }
+    if data['person']['contact_phones'][0]['number'] is None:
+        data['person']['contact_phones'][0]['number'] = 213555-9500
+    if data['user']['name'] is None:
+        data ['user']['name'] = "Maurilio"
+    if data['user']['cellphone'] is None:
+        data['user']['cellphone'] = "21 3555-1473"
+    data['person']['contact_phones'][0]['number'] = formatar_numero(data['person']['contact_phones'][0]['number'])
+    body['chatId'] = f"{data['person']['contact_phones'][0]['number']}@c.us"
+    body['text'] = f"Olá, {data['person']['name']}! 👋 Tudo bem?\nAgradecemos imensamente por escolher a AMDLAN para atender às suas necessidades. É uma grande satisfação saber que nosso orçamento foi aprovado🙌😊\nQualquer coisa, é só chamar! Estamos sempre à disposição 📲😉\n\n {data['user']['name']} – AMDLAN 🚀\n 213555-9500 / {data['user']['cellphone']}"
+    requests.post(url, json=body)
+    return "Msg Mandada Com Sucesso"
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=True)
+
+
+
