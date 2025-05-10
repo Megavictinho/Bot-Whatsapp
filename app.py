@@ -505,6 +505,9 @@ def amdlanpipe():
     body['chatId'] = f"{data['person']['contact_phones'][0]['number']}@c.us"
     body['text'] = f"Olá, {data['person']['name']}! 👋 Tudo bem?\nAgradecemos imensamente por escolher a AMDLAN para atender às suas necessidades. É uma grande satisfação saber que nosso orçamento foi aprovado🙌😊\nQualquer coisa, é só chamar! Estamos sempre à disposição 📲😉\n\n {data['user']['name']} – AMDLAN 🚀\n 213555-9500 / {data['user']['cellphone']}"
     requests.post(url, json=body)
+    with open("//home/flask_app//download//pipe.txt", "a") as arquivo:
+        arquivo.write(f"Nome do Cliente: {data['person']['name']}\nTelefone do Cliente: {data['person']['contact_phones'][0]['number']}\nNome do Vendedor: {data['user']['name']}\nTelefone do Vendedor: {data['user']['cellphone']}\n\n")
+        arquivo.close()
     return "Msg Mandada Com Sucesso"
 
 if __name__ == '__main__':
