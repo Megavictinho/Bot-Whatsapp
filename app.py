@@ -123,6 +123,10 @@ def formatar_numero(numero):
 def main():
     return  render_template('index.html')
 
+@app.route('/amdlan', methods=['GET'])
+def amdlan():
+    return  render_template('amdlan.html')
+
 @app.route('/amdlanvip', methods=['GET', 'POST'])
 def vip():
     if request.method == 'POST':
@@ -222,6 +226,10 @@ def calculo():
 @app.route('/download')
 def download_file():
     return send_from_directory(directory=os.path.join(os.getcwd(), 'download'), path='megazap.csv', as_attachment=True)
+
+@app.route('/downloadlog')
+def download_log():
+    return send_from_directory(directory=os.path.join(os.getcwd(), 'download'), path='crontab.log', as_attachment=True)
 
 @app.route('/amdlanferiado', methods=['GET', 'POST'])
 def amdlanferiado():
