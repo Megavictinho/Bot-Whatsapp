@@ -128,7 +128,7 @@ def amdlan():
     return  render_template('amdlan.html')
 
 @app.route('/amdlanvip', methods=['GET', 'POST'])
-def vip():
+def amdlanvip():
     if request.method == 'POST':
         nome = request.form.get('nome')
         cnpj = request.form.get('cnpj')
@@ -487,27 +487,23 @@ def suporte():
 
 @app.route('/amdlanpipe', methods=['POST'])
 def amdlanpipe():
-    data = request.json
-    print(data)
+    datapip = request.json
     url = "http://191.252.178.27:3000/api/sendText"
     body = {
         "chatId": "",
         "text": "",
         "session": "default"
         }
-    if data['person']['contact_phones'][0]['number'] is None:
-        data['person']['contact_phones'][0]['number'] = 213555-9500
-    if data['user']['name'] is None:
-        data ['user']['name'] = "Maurilio"
-    if data['user']['cellphone'] is None:
-        data['user']['cellphone'] = "21 3555-1473"
-    data['person']['contact_phones'][0]['number'] = formatar_numero(data['person']['contact_phones'][0]['number'])
-    body['chatId'] = f"{data['person']['contact_phones'][0]['number']}@c.us"
-    body['text'] = f"Olá, {data['person']['name']}! 👋 Tudo bem?\nAgradecemos imensamente por escolher a AMDLAN para atender às suas necessidades. É uma grande satisfação saber que nosso orçamento foi aprovado🙌😊\nQualquer coisa, é só chamar! Estamos sempre à disposição 📲😉\n\n {data['user']['name']} – AMDLAN 🚀\n 213555-9500 / {data['user']['cellphone']}"
+    if datapip['person']['contact_phones'][0]['number'] is None:
+        datapip['person']['contact_phones'][0]['number'] = '213555-9500'
+    if datapip['user']['name'] is None:
+        datapip['user']['name'] = "Setor Comercial"
+    if datapip['user']['cellphone'] is None:
+        datapip['user']['cellphone'] = "21 3555-1473"
+    datapip['person']['contact_phones'][0]['number'] = formatar_numero(datapip['person']['contact_phones'][0]['number'])
+    body['chatId'] = f"{datapip['person']['contact_phones'][0]['number']}@c.us"
+    body['text'] = f"Olá, *{datapip['person']['name']}*! 👋 Tudo certinho por aí?\nFicamos super felizes em saber que aprovou nosso orçamento! 🎉\nÉ uma honra poder caminhar junto com você nessa parceria conte sempre com a gente no que precisar! 🤝\nEstamos por aqui, no WhatsApp ou no telefone, prontos pra ajudar no que for preciso. 📲😉.\n\nUm abraço,\n*{datapip['user']['name']} – AMDLAN 🚀*\n📞 *21 3555-9500 / 📱 {datapip['user']['cellphone']}*"
     requests.post(url, json=body)
-    with open("//home/flask_app//download//pipe.txt", "a") as arquivo:
-        arquivo.write(f"Nome do Cliente: {data['person']['name']}\nTelefone do Cliente: {data['person']['contact_phones'][0]['number']}\nNome do Vendedor: {data['user']['name']}\nTelefone do Vendedor: {data['user']['cellphone']}\n\n")
-        arquivo.close()
     return "Msg Mandada Com Sucesso"
 
 if __name__ == '__main__':
