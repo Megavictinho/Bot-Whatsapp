@@ -9,12 +9,14 @@ from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 import re
+import pyshorteners
 
 app = Flask(__name__)
 vip_dados = 'vip_dados.xlsx'
 arquivo_texto = 'dados.xlsx'
 arquivo_feriados = 'feriados.txt'
 ARQUIVO = 'links de videos.xlsx'
+short_url = []
 
 def keruak(cnpj):
     url = "https://app.keruak.com/cgi-bin/ContasaReceber/public?id=dmljdG9yc291&params=[TPessoa.CNPJCPF]={}&detail=true".format(
@@ -505,6 +507,16 @@ def amdlanpipe():
     body['text'] = f"Olá, *{datapip['person']['name']}*! 👋 Tudo certinho por aí?\nFicamos super felizes em saber que aprovou nosso orçamento! 🎉\nÉ uma honra poder caminhar junto com você nessa parceria conte sempre com a gente no que precisar! 🤝\nEstamos por aqui, no WhatsApp ou no telefone, prontos pra ajudar no que for preciso. 📲😉.\n\nUm abraço,\n*{datapip['user']['name']} – AMDLAN 🚀*\n📞 *21 3555-9500 / 📱 {datapip['user']['cellphone']}*"
     requests.post(url, json=body)
     return "Msg Mandada Com Sucesso"
+
+@app.route('/amdlanencurtador', methods=['GET', 'POST'])
+def encurtador():
+    if request.method == 'POST':
+        url = request.form['url']
+        if url:
+            s = pyshorteners.Shortener()
+            short_url = s.tinyurl.short(url)
+            return render_template('encurtador.html', url=url, link=short_url)
+    return render_template('encurtador.html')
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=True)

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encurtador de Links</title>
+</head>
+<body>
+    <H1>Encurtador de Link</H1>
+    <form action="/amdlanencurtador" method="POST">
+        <label for="url">URL:</label>
+        <input type="text" id="url" name="url" required>
+        <button type="submit">Encurtar</button>
+    </form>
+    <h2>Links Encurtado</h2>
+    <ul>
+        <li><a href="{{ link }}">{{ link }}</a> - {{ url }}</li> 
+    </ul>  
+</html>
